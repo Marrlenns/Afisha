@@ -1,30 +1,54 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 
+# Create your models here.
 class Director(models.Model):
-    name = models.CharField(max_length=100)
+    class Meta:
+        verbose_name = 'Режиссер'
+        verbose_name_plural = 'Режиссеры'
+
+    name = models.CharField(max_length=255, verbose_name='Имя')
 
     def __str__(self):
         return self.name
 
+    def movie_count(self):
+        return len(self.movies.all())
+
 
 class Movie(models.Model):
-    title = models.CharField(max_length=100, verbose_name='Название фильма:')
-    description = models.TextField(null=True, blank=True, verbose_name='Описание фильма:')
-    duration = models.IntegerField(default=30)
-    director = models.ForeignKey(to=Director, verbose_name='Режиссер:',
-                                 related_name='movies', on_delete=models.SET_NULL,
-                                 null=True, blank=True)
+    class Meta:
+        verbose_name = 'Фильм'
+        verbose_name_plural = 'Фильмы'
+
+    title = models.CharField(max_length=255, verbose_name='Название')
+    description = models.TextField(verbose_name='Описание')
+    duration = models.IntegerField(help_text='Длительность в минутах', verbose_name='Длительность')
+    director = models.ForeignKey(Director, on_delete=models.SET_DEFAULT, default='Неизвестно', verbose_name='Режиссер',
+                                 related_name='movies')
 
     def __str__(self):
-        return f"{self.title} - {self.director}"
+        return self.title
+
+    def rating(self):
+        lst = [review.stars for review in self.reviews.all()]
+        return sum(lst) / len(lst)
 
 
 class Review(models.Model):
-    text = models.TextField("Ваш отзыв")
-    movie = models.ForeignKey(to=Movie, verbose_name='Отзыв к фильму',
-                              related_name='reviews', on_delete=models.SET_NULL,
-                              null=True, blank=True)
+    class Meta:
+        verbose_name = 'Отзыв'
+        verbose_name_plural = 'Отзывы'
+
+    author = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    text = models.TextField(verbose_name='Текст')
+    stars = models.IntegerField(default=0, verbose_name='Рейтинг')
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE, verbose_name='Фильм', related_name='reviews')
 
     def __str__(self):
-        return f"{self.movie}"
+        if len(self.text) <= 50:
+            return (
+                self.author.username if self.author is not None else 'Anonymous') + ', ' + self.text + '; ' + self.movie.title
+        return (self.author.username if self.author is not None else 'Anonymous') + ', ' + self.text[
+                                                                                           0:50] + '...;  ' + self.movie.title
